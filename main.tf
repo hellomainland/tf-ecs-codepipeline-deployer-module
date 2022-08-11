@@ -1,12 +1,11 @@
 data "aws_caller_identity" "current" {}
 
-resource "aws_s3_bucket" "codebuild" {
-  bucket = "${var.common_name}-deployer-codebuild-bucket"
+data "aws_s3_bucket" "codebuild" {
+  bucket = "terraform-codebuild"
 }
 
-resource "aws_s3_bucket_acl" "codebuild" {
-  bucket = aws_s3_bucket.codebuild.id
-  acl    = "private"
+data "aws_s3_bucket" "codepipeline" {
+  bucket = "terraform-codepipeline"
 }
 
 resource "aws_iam_role" "codebuild" {
@@ -89,10 +88,10 @@ resource "aws_iam_role_policy" "codebuild" {
         "s3:*"
       ],
       "Resource": [
-        "${aws_s3_bucket.codebuild.arn}",
-        "${aws_s3_bucket.codebuild.arn}/*",
-        "${aws_s3_bucket.codepipeline_bucket.arn}",
-        "${aws_s3_bucket.codepipeline_bucket.arn}/*"
+        "${data.aws_s3_bucket.codebuild.arn}",
+        "${data.aws_s3_bucket.codebuild.arn}/*",
+        "${data.aws_s3_bucket.codepipeline.arn}",
+        "${data.aws_s3_bucket.codepipeline.arn}/*"
       ]
     }
   ]
@@ -125,7 +124,7 @@ resource "aws_codebuild_project" "codebuild" {
 
     s3_logs {
       status   = "ENABLED"
-      location = "${aws_s3_bucket.codebuild.id}/build-log"
+      location = "${data.aws_s3_bucket.codebuild.id}/${var.common_name}-deployer-codebuild/build-log"
     }
   }
 
@@ -175,7 +174,7 @@ resource "aws_codepipeline" "codepipeline" {
   role_arn = aws_iam_role.codepipeline_role.arn
 
   artifact_store {
-    location = aws_s3_bucket.codepipeline_bucket.bucket
+    location = data.aws_s3_bucket.codepipeline.bucket
     type     = "S3"
 
   }
@@ -207,15 +206,6 @@ resource "aws_codepipeline" "codepipeline" {
     }
   }
 
-}
-
-resource "aws_s3_bucket" "codepipeline_bucket" {
-  bucket = "${var.common_name}-deployer"
-}
-
-resource "aws_s3_bucket_acl" "codepipeline_bucket_acl" {
-  bucket = aws_s3_bucket.codepipeline_bucket.id
-  acl    = "private"
 }
 
 resource "aws_iam_role" "codepipeline_role" {
@@ -255,8 +245,8 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         "s3:PutObject"
       ],
       "Resource": [
-        "${aws_s3_bucket.codepipeline_bucket.arn}",
-        "${aws_s3_bucket.codepipeline_bucket.arn}/*"
+        "${data.aws_s3_bucket.codepipeline.arn}",
+        "${data.aws_s3_bucket.codepipeline.arn}/*"
       ]
     },
     {
